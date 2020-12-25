@@ -3,6 +3,7 @@ from pygame.locals import *
 import sys
 import os
 import configparser
+import logging
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -51,6 +52,9 @@ def main(font, size):
     while True:
         start = (count - 1) * lines_per_image
         end = min(start + lines_per_image, len(txt))
+        if start >= len(txt):
+            break
+
         lines = txt[start:end]
 
         clear()
@@ -66,21 +70,16 @@ def main(font, size):
 
             fLine = line
             for char in line:
-                #print ord(char), char,
                 if ord(char) > 4950:
-                    fLine = fLine.replace(char,"")
-                    #print "here",
-                #print
-            #print line
-            flist = list(fLine)
-            fLine = "".join(flist)
-            textArea = displayAmharicText(fLine,font, size, (xc,yc),BLACK)
-            #print(type(fLine))
+                    fLine = fLine.replace(char, "")
+
+            textArea = displayAmharicText(fLine, font, size, (xc, yc), BLACK)
+
             lab.write(fLine+"\n")
             if textArea.width > wMax:
                 wMax = textArea.width
             yc += textArea.height + size
-            #break
+
         for event in pygame.event.get():
             if event.type == QUIT:
                 terminate()
@@ -88,10 +87,13 @@ def main(font, size):
         margin = 10
         letter = DISPSURF.subsurface(x0 -margin, y0 -margin,wMax + 2*margin,yc - y0)
         name = 'image_%d.png'%count
-        pygame.image.save(letter, name)
+        try:
+            pygame.image.save(letter, name)
+        except Exception as e:
+            logging.log(logging.ERROR, " Unable to write image to {}".format(name))
+
         lab.close()
         pygame.time.wait(1)
-        #terminate()
         count += 1
         FPSCLOCK.tick()
 
@@ -115,10 +117,8 @@ def clear():
 if __name__ == '__main__':
     fonts = ["nyala"]
     sizes = range(16,17)
-    maxx = []
-    maxy = []
+
     for font in fonts:
         for size in sizes:
-            mx, my = main(font, size)
-    print(max(maxx), max(maxy))
+            main(font, size)
     terminate()
