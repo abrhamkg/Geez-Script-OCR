@@ -10,6 +10,7 @@ from imutils.object_detection import non_max_suppression
 import matplotlib.pyplot as plt
 import configparser
 import os
+import logging
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -26,6 +27,7 @@ class Detector(object):
     def detect(image):
         raise NotImplementedError
 
+    @staticmethod
     def draw_boxes(image, boxes):
         raise NotImplementedError
 
@@ -83,9 +85,10 @@ class EASTDetector(Detector):
         boxes = non_max_suppression(np.array(rects), probs=confidences)
         return boxes, image
 
+    @staticmethod
     def draw_boxes(image, boxes):
         for (startX, startY, endX, endY) in boxes:
-            cv2.rectangle(image, (startX, startY), (endX, endY), (0,255,0), 2)     
+            cv2.rectangle(image, (startX, startY), (endX, endY), (0,255,0), 2)
 
 
 class MSERDetector(Detector):
@@ -94,12 +97,13 @@ class MSERDetector(Detector):
     def __init__(self):
         super().__init__()
 
-    def detect(image):
+    def detect(image, kernel=None):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV|cv2.THRESH_OTSU)
         plt.imshow(thresh, cmap='gray')
         plt.figure()
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,10))
+        if kernel is None:
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 10))
         #plt.imshow(kernel*255, cmap='gray')
         #plt.figure()
         filtered = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
@@ -113,10 +117,38 @@ class MSERDetector(Detector):
         #kernel = cv2.getStructuringElement()
         #closing = cv2.MorphologyEx(thresh, cv2.MORPH_CLOSE, )
         regions, bboxes = MSERDetector.mser.detectRegions(filtered)
-        hulls = [cv2.convexHull(p.reshape(-1,1,2)) for p in regions]
-        
+        hulls = [cv2.convexHull(p.reshape(-1, 1, 2)) for p in regions]
+        lines = MSERDetector.identify_lines(bboxes)
+        print(lines)
         return bboxes, hulls
 
+    @staticmethod
+    def identify_lines(bboxes):
+
+        bboxes = sorted(bboxes, key=lambda g: (g[1], g[0]))
+        lines = []
+        ptr = 0
+        logging.log(logging.INFO, " Started line identification")
+        while True:
+            if ptr >= len(bboxes):
+                break
+            line = [bboxes[ptr]]
+            top_average = line[0][1]
+            count = 1
+            ptr += 1
+            while ptr < len(bboxes) and abs((bboxes[ptr][1] - top_average)/top_average) < 0.5:
+                logging.log(logging.INFO, "Working on {}".format(ptr))
+                top_average = ((top_average * count) + bboxes[ptr][1]) / (count + 1)
+                count += 1
+                line.append(bboxes[ptr])
+                ptr += 1
+            logging.log(logging.INFO, " Detected one line")
+            # ptr -= 1
+            lines.append(line)
+        logging.log(logging.INFO, " Finished detecting lines")
+        return lines
+
+    @staticmethod
     def draw_boxes(image, bboxes=None, hulls=None):
         if bboxes is None and hulls is None:
             raise ValueError("One of bboxes or hulls must be specified")
@@ -135,7 +167,7 @@ if __name__ == '__main__':
     image = cv2.imread(os.path.join(IMG_TRAIN_DIR, 'image_1.png'))
     detector = MSERDetector
     boxes, hulls = detector.detect(image)
-    detector.draw_boxes(image,hulls=hulls, bboxes=boxes)
+    detector.draw_boxes(image, hulls=hulls, bboxes=boxes)
     plt.figure()
     plt.imshow(image)
     plt.show()
