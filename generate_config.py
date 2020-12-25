@@ -7,7 +7,7 @@ config['DEFAULT'] = {'MODEL_DIR': 'models',
                      'MORPHOLOGY_KERNEL':'MORPH_RECT',
                      'MORPH_KERNEL_SIZE': '(1, 20)',
                      'BILATERAL_FILTER': '0',
-
+                     'MODE': 'DEBUG',
                      }
 
 with open('config.ini', 'w') as configfile:

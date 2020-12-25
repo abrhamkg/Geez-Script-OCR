@@ -17,6 +17,7 @@ config.read('config.ini')
 
 MODEL_DIR = config['DEFAULT']['MODEL_DIR']
 DATA_DIR = config['DEFAULT']['DATA_DIR']
+DEBUG = config['DEFAULT']['MODE'].upper() == 'DEBUG'
 
 layerNames = [
     "feature_fusion/Conv_7/Sigmoid",
@@ -100,26 +101,20 @@ class MSERDetector(Detector):
     def detect(image, kernel=None):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV|cv2.THRESH_OTSU)
-        plt.imshow(thresh, cmap='gray')
-        plt.figure()
+        if DEBUG:
+            plt.imshow(thresh, cmap='gray')
+            plt.figure()
         if kernel is None:
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 10))
-        #plt.imshow(kernel*255, cmap='gray')
-        #plt.figure()
+
         filtered = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
-        plt.imshow(filtered, cmap='gray')
-        #filtered = gray
-        #filtered = cv2.medianBlur(gray, 3)
-        #cv2.imshow("www", gray)
-        #cv2.waitKey(0)
-        #vis = image.copy()
-        #cv2.closing()
-        #kernel = cv2.getStructuringElement()
-        #closing = cv2.MorphologyEx(thresh, cv2.MORPH_CLOSE, )
+        if DEBUG:
+            plt.imshow(filtered, cmap='gray')
+
         regions, bboxes = MSERDetector.mser.detectRegions(filtered)
         hulls = [cv2.convexHull(p.reshape(-1, 1, 2)) for p in regions]
         lines = MSERDetector.identify_lines(bboxes)
-        print(lines)
+
         return bboxes, hulls
 
     @staticmethod
