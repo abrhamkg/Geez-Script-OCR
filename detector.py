@@ -8,21 +8,33 @@ import numpy as np
 import cv2
 from imutils.object_detection import non_max_suppression
 import matplotlib.pyplot as plt
+import configparser
+import os
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+MODEL_DIR = config['DEFAULT']['MODEL_DIR']
 
 layerNames = [
     "feature_fusion/Conv_7/Sigmoid",
     "feature_fusion/concat_3"]
 
+
 class Detector(object):
     def detect(image):
         raise NotImplementedError
+
     def draw_boxes(image, boxes):
         raise NotImplementedError
 
+
 class EASTDetector(Detector):
-    net = cv2.dnn.readNet("frozen_east_text_detection.pb")
+    net = cv2.dnn.readNet(os.path.join(MODEL_DIR, "frozen_east_text_detection.pb"))
+
     def __init__(self):
         super().__init__()
+
     def detect(image):
         min_confidence = 0.1
         (H, W) = image.shape[:2]
@@ -69,14 +81,18 @@ class EASTDetector(Detector):
                 
         boxes = non_max_suppression(np.array(rects), probs=confidences)
         return boxes, image
+
     def draw_boxes(image, boxes):
         for (startX, startY, endX, endY) in boxes:
             cv2.rectangle(image, (startX, startY), (endX, endY), (0,255,0), 2)     
 
+
 class MSERDetector(Detector):
     mser = cv2.MSER_create(_delta=4, _min_area=20, _max_variation=0.25)
+
     def __init__(self):
         super().__init__()
+
     def detect(image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV|cv2.THRESH_OTSU)
@@ -99,6 +115,7 @@ class MSERDetector(Detector):
         hulls = [cv2.convexHull(p.reshape(-1,1,2)) for p in regions]
         
         return bboxes, hulls
+
     def draw_boxes(image, bboxes=None, hulls=None):
         if bboxes is None and hulls is None:
             raise ValueError("One of bboxes or hulls must be specified")
