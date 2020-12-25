@@ -15,6 +15,7 @@ config = configparser.ConfigParser()
 config.read('config.ini')
 
 MODEL_DIR = config['DEFAULT']['MODEL_DIR']
+DATA_DIR = config['DEFAULT']['DATA_DIR']
 
 layerNames = [
     "feature_fusion/Conv_7/Sigmoid",
@@ -130,12 +131,14 @@ class MSERDetector(Detector):
 
 
 if __name__ == '__main__':
-    image = cv2.imread('training/image_1.png')
+    IMG_TRAIN_DIR = os.path.join(DATA_DIR, 'img/train')
+    image = cv2.imread(os.path.join(IMG_TRAIN_DIR, 'image_1.png'))
     detector = MSERDetector
     boxes, hulls = detector.detect(image)
     detector.draw_boxes(image,hulls=hulls, bboxes=boxes)
     plt.figure()
     plt.imshow(image)
     plt.show()
+
     #cv2.imshow("win", image)
     #cv2.waitKey(0)
