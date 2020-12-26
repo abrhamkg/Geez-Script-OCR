@@ -8,6 +8,7 @@ Created on Fri Dec 20 16:26:35 2019
 import numpy as np
 import cv2
 from imutils.object_detection import non_max_suppression
+import matplotlib
 import matplotlib.pyplot as plt
 import configparser
 import os
@@ -18,7 +19,7 @@ import config
 settings = configparser.ConfigParser()
 settings.read('config.ini')
 
-MODEL_DIR, DATA_DIR, DEBUG = config.parse_config(settings, 'DEFAULT', ['MODEL_DIR', 'DATA_DIR', 'MODE'])
+MODEL_DIR, DATA_DIR, DEBUG = config.get_params(settings, 'DEFAULT', ['MODEL_DIR', 'DATA_DIR', 'MODE'])
 
 layerNames = [
     "feature_fusion/Conv_7/Sigmoid",
@@ -99,14 +100,21 @@ class MSERDetector(Detector):
     def __init__(self):
         super().__init__()
 
-    def detect(image, kernel=None):
+    def detect(image, kernel=None, otype=''):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        ktype, size = config.get_params(settings, 'DEFAULT', ['MORPHOLOGY_KERNEL', 'MORPH_KERNEL_SIZE'])
         _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV|cv2.THRESH_OTSU)
         if DEBUG:
             plt.imshow(thresh, cmap='gray')
             plt.figure()
         if kernel is None:
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
+            if ktype == 'ELLIPSE':
+                ktype = cv2.MORPH_ELLIPSE
+            elif ktype == 'CROSS':
+                ktype = cv2.MORPH_CROSS
+            else:
+                ktype = cv2.MORPH_RECT
+            kernel = cv2.getStructuringElement(ktype, (3, 5))
 
         filtered = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
         if DEBUG:
@@ -115,8 +123,8 @@ class MSERDetector(Detector):
         regions, bboxes = MSERDetector.mser.detectRegions(filtered)
         hulls = [cv2.convexHull(p.reshape(-1, 1, 2)) for p in regions]
         lines = MSERDetector.identify_lines(bboxes)
-
-        return bboxes, hulls
+        print("Length", len(lines))
+        return bboxes, hulls, lines
 
     @staticmethod
     def identify_lines(bboxes):
@@ -130,16 +138,23 @@ class MSERDetector(Detector):
                 break
             line = [bboxes[ptr]]
             top_average = line[0][1]
+            lowest_bottom = line[0][1] + line[0][3]
             count = 1
             ptr += 1
-            while ptr < len(bboxes) and abs((bboxes[ptr][1] - top_average)/top_average) < 0.5:
+            while ptr < len(bboxes) and abs((bboxes[ptr][1] - top_average)/top_average) < 0.2:
+                if bboxes[ptr][1] > lowest_bottom:
+                    break
                 logging.log(logging.INFO, "Working on {}".format(ptr))
                 top_average = ((top_average * count) + bboxes[ptr][1]) / (count + 1)
+                bottom = line[0][1] + line[0][3]
+                if bottom > lowest_bottom:
+                    lowest_bottom = bottom
                 count += 1
                 line.append(bboxes[ptr])
                 ptr += 1
             logging.log(logging.INFO, " Detected one line")
             # ptr -= 1
+            line = sorted(line, key=lambda g: g[0])
             lines.append(line)
         logging.log(logging.INFO, " Finished detecting lines")
         return lines
@@ -159,11 +174,25 @@ class MSERDetector(Detector):
 
 
 if __name__ == '__main__':
+    import matplotlib.animation as animation
+    matplotlib.use('Agg')
     IMG_TRAIN_DIR = os.path.join(DATA_DIR, 'img/train')
     image = cv2.imread(os.path.join(IMG_TRAIN_DIR, 'image_1.png'))
     detector = MSERDetector
-    boxes, hulls = detector.detect(image)
-    detector.draw_boxes(image, hulls=hulls, bboxes=boxes)
+    boxes, hulls, lines = detector.detect(image)
+    fig = plt.figure()
+    ims = []
+    for l in lines:
+        for b in l:
+            b = [b]
+            detector.draw_boxes(image, bboxes=b)
+            im = plt.imshow(image, animated=True)
+            ims.append([im])
+    ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
+                                    repeat_delay=1000)
+    ani.save('animation.gif', writer='PillowWriter', fps=2)
+    #ani.save('bbox_detection.mp4')
+    #detector.draw_boxes(image, hulls=hulls, bboxes=boxes)
     plt.figure()
     plt.imshow(image)
     plt.show()

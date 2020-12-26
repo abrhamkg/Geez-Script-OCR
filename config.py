@@ -3,14 +3,14 @@ import configparser
 config = configparser.ConfigParser()
 
 
-def parse_config(config, config_name, items):
+def get_params(config, config_name, items):
     return [config[config_name][i] for i in items]
 
 
 if __name__ == '__main__':
     config['DEFAULT'] = {'MODEL_DIR': 'models',
                          'DATA_DIR': 'data',
-                         'MORPHOLOGY_KERNEL':'MORPH_RECT',
+                         'MORPHOLOGY_KERNEL':'RECT',
                          'MORPH_KERNEL_SIZE': '(3, 11)',
                          'BILATERAL_FILTER': '0',
                          'MODE': 'DEBUG',
