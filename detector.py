@@ -4,6 +4,7 @@ Created on Fri Dec 20 16:26:35 2019
 
 @author: abrih
 """
+
 import numpy as np
 import cv2
 from imutils.object_detection import non_max_suppression
@@ -11,13 +12,13 @@ import matplotlib.pyplot as plt
 import configparser
 import os
 import logging
+import config
 
-config = configparser.ConfigParser()
-config.read('config.ini')
 
-MODEL_DIR = config['DEFAULT']['MODEL_DIR']
-DATA_DIR = config['DEFAULT']['DATA_DIR']
-DEBUG = config['DEFAULT']['MODE'].upper() == 'DEBUG'
+settings = configparser.ConfigParser()
+settings.read('config.ini')
+
+MODEL_DIR, DATA_DIR, DEBUG = config.parse_config(settings, 'DEFAULT', ['MODEL_DIR', 'DATA_DIR', 'MODE'])
 
 layerNames = [
     "feature_fusion/Conv_7/Sigmoid",
@@ -105,7 +106,7 @@ class MSERDetector(Detector):
             plt.imshow(thresh, cmap='gray')
             plt.figure()
         if kernel is None:
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 10))
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
 
         filtered = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
         if DEBUG:
@@ -166,6 +167,3 @@ if __name__ == '__main__':
     plt.figure()
     plt.imshow(image)
     plt.show()
-
-    #cv2.imshow("win", image)
-    #cv2.waitKey(0)
